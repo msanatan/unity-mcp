@@ -21,8 +21,8 @@ async def manage_asset(
     path: Annotated[str, "Asset path (e.g., 'Materials/MyMaterial.mat') or search scope."],
     asset_type: Annotated[str,
                           "Asset type (e.g., 'Material', 'Folder') - required for 'create'."] | None = None,
-    properties: Annotated[dict[str, Any],
-                          "Dictionary of properties for 'create'/'modify'."] | None = None,
+    properties: Annotated[dict[str, Any] | str,
+                          "Dictionary (or JSON string) of properties for 'create'/'modify'."] | None = None,
     destination: Annotated[str,
                            "Target path for 'duplicate'/'move'."] | None = None,
     generate_preview: Annotated[bool,
@@ -41,14 +41,29 @@ async def manage_asset(
     # Removed session_state import
     unity_instance = get_unity_instance_from_context(ctx)
     # Coerce 'properties' from JSON string to dict for client compatibility
+    # FastMCP may pass dicts directly (which we use as-is) or strings (which we parse)
     if isinstance(properties, str):
+        # Debug: log what we received
+        ctx.info(f"manage_asset: received properties as string (first 100 chars): {properties[:100]}")
+        # Try parsing as JSON first
         try:
             properties = json.loads(properties)
             ctx.info("manage_asset: coerced properties from JSON string to dict")
-        except Exception as e:
-            ctx.warn(
-                f"manage_asset: failed to parse properties JSON string: {e}")
-            # Leave properties as-is; Unity side may handle defaults
+        except json.JSONDecodeError as json_err:
+            # If JSON parsing fails, it might be a Python dict string representation
+            # Try using ast.literal_eval as a fallback (safer than eval)
+            try:
+                import ast
+                properties = ast.literal_eval(properties)
+                ctx.info("manage_asset: coerced properties from Python dict string to dict")
+            except (ValueError, SyntaxError) as eval_err:
+                # If both fail, log warning and leave as string - Unity side may handle or provide defaults
+                ctx.info(f"manage_asset: failed to parse properties string. JSON error: {json_err}, eval error: {eval_err}. Leaving as-is for Unity to handle.")
+    elif isinstance(properties, dict):
+        # Already a dict, use as-is
+        ctx.info(f"manage_asset: received properties as dict with keys: {list(properties.keys())}")
+    elif properties is not None:
+        ctx.info(f"manage_asset: received properties as unexpected type: {type(properties)}")
     # Ensure properties is a dict if None
     if properties is None:
         properties = {}
