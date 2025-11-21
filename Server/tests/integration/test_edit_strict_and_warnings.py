@@ -32,7 +32,7 @@ async def test_explicit_zero_based_normalized_warning(monkeypatch):
         # Simulate Unity path returning minimal success
         return {"success": True}
 
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -66,7 +66,7 @@ async def test_strict_zero_based_error(monkeypatch):
     async def fake_send(cmd, params, **kwargs):
         return {"success": True}
 
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",

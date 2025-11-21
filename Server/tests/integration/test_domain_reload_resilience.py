@@ -16,7 +16,7 @@ from .test_helpers import DummyContext
 async def test_plugin_hub_waits_for_reconnection_during_reload():
     """Test that PluginHub._resolve_session_id waits for plugin reconnection."""
     # Import after conftest stubs are set up
-    from plugin_hub import PluginHub
+    from transport.plugin_hub import PluginHub
     from plugin_registry import PluginRegistry, PluginSession
     
     # Create a mock registry
@@ -71,7 +71,7 @@ async def test_plugin_hub_waits_for_reconnection_during_reload():
 @pytest.mark.asyncio
 async def test_plugin_hub_fails_after_timeout():
     """Test that PluginHub._resolve_session_id eventually times out if plugin never reconnects."""
-    from plugin_hub import PluginHub
+    from transport.plugin_hub import PluginHub
     from plugin_registry import PluginRegistry
     
     # Create a mock registry that never returns sessions
@@ -161,7 +161,7 @@ async def test_read_console_during_simulated_reload(monkeypatch):
 @pytest.mark.asyncio
 async def test_plugin_hub_respects_unity_instance_preference():
     """Test that _resolve_session_id prefers a specific Unity instance if requested."""
-    from plugin_hub import PluginHub
+    from transport.plugin_hub import PluginHub
     from plugin_registry import PluginRegistry, PluginSession
     
     # Create a mock registry with two sessions

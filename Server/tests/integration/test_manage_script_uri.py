@@ -40,7 +40,7 @@ async def test_split_uri_unity_path(monkeypatch):
         return {"success": True, "message": "ok"}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -80,7 +80,7 @@ async def test_split_uri_file_urls(monkeypatch, uri, expected_name, expected_pat
         return {"success": True, "message": "ok"}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -105,7 +105,7 @@ async def test_split_uri_plain_path(monkeypatch):
         return {"success": True, "message": "ok"}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",

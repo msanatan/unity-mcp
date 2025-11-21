@@ -57,7 +57,7 @@ async def test_apply_text_edits_long_file(monkeypatch):
         return {"success": True}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -86,7 +86,7 @@ async def test_sequential_edits_use_precondition(monkeypatch):
         return {"success": True, "sha256": f"hash{len(calls)}"}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -121,7 +121,7 @@ async def test_apply_text_edits_forwards_options(monkeypatch):
         return {"success": True}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -150,7 +150,7 @@ async def test_apply_text_edits_defaults_atomic_for_multi_span(monkeypatch):
         return {"success": True}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",

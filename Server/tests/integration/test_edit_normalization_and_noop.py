@@ -37,7 +37,7 @@ async def test_normalizes_lsp_and_index_ranges(monkeypatch):
         return {"success": True}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -98,7 +98,7 @@ async def test_noop_evidence_shape(monkeypatch):
             "data": {"no_op": True, "evidence": {"reason": "identical_content"}},
         }
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
@@ -146,7 +146,7 @@ async def test_atomic_multi_span_and_relaxed(monkeypatch):
         return {"success": True}
 
     # Patch the send_command_with_retry function at the module level where it's imported
-    import unity_connection
+    import transport.legacy.unity_connection
     monkeypatch.setattr(
         unity_connection,
         "async_send_command_with_retry",
