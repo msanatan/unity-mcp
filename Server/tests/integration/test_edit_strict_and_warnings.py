@@ -14,8 +14,8 @@ class DummyMCP:
 def setup_tools():
     mcp = DummyMCP()
     # Import tools to trigger decorator-based registration
-    import tools.manage_script
-    from registry import get_registered_tools
+    import services.tools.manage_script
+    from services.registry import get_registered_tools
     for tool_info in get_registered_tools():
         name = tool_info['name']
         if any(k in name for k in ['script', 'apply_text', 'create_script', 'delete_script', 'validate_script', 'get_sha']):
@@ -34,7 +34,7 @@ async def test_explicit_zero_based_normalized_warning(monkeypatch):
 
     import transport.legacy.unity_connection
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_send,
     )
@@ -68,7 +68,7 @@ async def test_strict_zero_based_error(monkeypatch):
 
     import transport.legacy.unity_connection
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_send,
     )

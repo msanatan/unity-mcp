@@ -14,9 +14,9 @@ class DummyMCP:
 def setup_tools():
     mcp = DummyMCP()
     # Import the tools module to trigger decorator registration
-    import tools.manage_script
+    import services.tools.manage_script
     # Get the registered tools from the registry
-    from registry import get_registered_tools
+    from services.registry import get_registered_tools
     tools = get_registered_tools()
     # Add all script-related tools to our dummy MCP
     for tool_info in tools:
@@ -39,7 +39,7 @@ async def test_normalizes_lsp_and_index_ranges(monkeypatch):
     # Patch the send_command_with_retry function at the module level where it's imported
     import transport.legacy.unity_connection
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_send,
     )
@@ -73,7 +73,7 @@ async def test_normalizes_lsp_and_index_ranges(monkeypatch):
 
     # Override unity_connection for this read normalization case
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_read,
     )
@@ -100,7 +100,7 @@ async def test_noop_evidence_shape(monkeypatch):
     # Patch the send_command_with_retry function at the module level where it's imported
     import transport.legacy.unity_connection
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_send,
     )
@@ -124,9 +124,9 @@ async def test_atomic_multi_span_and_relaxed(monkeypatch):
     apply_text = tools_text["apply_text_edits"]
     tools_struct = DummyMCP()
     # Import the tools module to trigger decorator registration
-    import tools.script_apply_edits
+    import services.tools.script_apply_edits
     # Get the registered tools from the registry
-    from registry import get_registered_tools
+    from services.registry import get_registered_tools
     tools = get_registered_tools()
     # Add all script-related tools to our dummy MCP
     for tool_info in tools:
@@ -148,7 +148,7 @@ async def test_atomic_multi_span_and_relaxed(monkeypatch):
     # Patch the send_command_with_retry function at the module level where it's imported
     import transport.legacy.unity_connection
     monkeypatch.setattr(
-        unity_connection,
+        transport.legacy.unity_connection,
         "async_send_command_with_retry",
         fake_send,
     )

@@ -14,9 +14,9 @@ import pytest
 from unittest.mock import AsyncMock, Mock, MagicMock, patch
 from fastmcp import Context
 
-from unity_instance_middleware import UnityInstanceMiddleware
-from tools import get_unity_instance_from_context
-from tools.set_active_instance import set_active_instance as set_active_instance_tool
+from transport.unity_instance_middleware import UnityInstanceMiddleware
+from services.tools import get_unity_instance_from_context
+from services.tools.set_active_instance import set_active_instance as set_active_instance_tool
 
 
 class TestInstanceRoutingBasics:
@@ -194,11 +194,11 @@ class TestInstanceRoutingHTTP:
             }
         }
         monkeypatch.setattr(
-            "tools.set_active_instance.PluginHub.get_sessions",
+            "services.tools.set_active_instance.PluginHub.get_sessions",
             AsyncMock(return_value=fake_sessions),
         )
         monkeypatch.setattr(
-            "tools.set_active_instance.get_unity_instance_middleware",
+            "services.tools.set_active_instance.get_unity_instance_middleware",
             lambda: middleware,
         )
 
@@ -229,11 +229,11 @@ class TestInstanceRoutingHTTP:
             }
         }
         monkeypatch.setattr(
-            "tools.set_active_instance.PluginHub.get_sessions",
+            "services.tools.set_active_instance.PluginHub.get_sessions",
             AsyncMock(return_value=fake_sessions),
         )
         monkeypatch.setattr(
-            "tools.set_active_instance.get_unity_instance_middleware",
+            "services.tools.set_active_instance.get_unity_instance_middleware",
             lambda: middleware,
         )
 
@@ -252,11 +252,11 @@ class TestInstanceRoutingHTTP:
         monkeypatch.setenv("UNITY_MCP_TRANSPORT", "http")
         fake_sessions = {"sessions": {}}
         monkeypatch.setattr(
-            "tools.set_active_instance.PluginHub.get_sessions",
+            "services.tools.set_active_instance.PluginHub.get_sessions",
             AsyncMock(return_value=fake_sessions),
         )
         monkeypatch.setattr(
-            "tools.set_active_instance.get_unity_instance_middleware",
+            "services.tools.set_active_instance.get_unity_instance_middleware",
             lambda: middleware,
         )
 
@@ -280,11 +280,11 @@ class TestInstanceRoutingHTTP:
             }
         }
         monkeypatch.setattr(
-            "tools.set_active_instance.PluginHub.get_sessions",
+            "services.tools.set_active_instance.PluginHub.get_sessions",
             AsyncMock(return_value=fake_sessions),
         )
         monkeypatch.setattr(
-            "tools.set_active_instance.get_unity_instance_middleware",
+            "services.tools.set_active_instance.get_unity_instance_middleware",
             lambda: middleware,
         )
 
