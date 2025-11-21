@@ -70,10 +70,10 @@ def test_telemetry_disabled():
 
     # Re-import to get fresh config
     import importlib
-    import telemetry
-    importlib.reload(telemetry)
+    import core.telemetry
+    importlib.reload(core.telemetry)
 
-    core.telemetry import is_telemetry_enabled, record_telemetry, RecordType
+    from core.telemetry import is_telemetry_enabled, record_telemetry, RecordType
 
     _ = is_telemetry_enabled()
 
@@ -95,7 +95,7 @@ def test_data_storage():
     # Silent for tests
 
     try:
-        core.telemetry import get_telemetry
+        from core.telemetry import get_telemetry
 
         collector = get_telemetry()
         data_dir = collector.config.data_dir
