@@ -23,6 +23,15 @@ dev = [
 [project.scripts]
 mcp-for-unity = "main:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["main"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests", "tests.*"]
+
 [build-system]
 requires = ["setuptools>=64.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
