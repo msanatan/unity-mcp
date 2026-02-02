@@ -44,6 +44,50 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Merge beta into main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Fetch beta branch
+          git fetch origin beta
+
+          # Check if beta has changes not in main
+          if git merge-base --is-ancestor origin/beta HEAD; then
+            echo "beta is already merged into main. Nothing to merge."
+          else
+            echo "Merging beta into main..."
+            git merge origin/beta --no-edit -m "chore: merge beta into main for release"
+            echo "Beta merged successfully."
+          fi
+
+      - name: Strip beta suffix from version if present
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_VERSION=$(jq -r '.version' "MCPForUnity/package.json")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Strip beta/alpha/rc suffix if present (e.g., "9.4.0-beta.1" -> "9.4.0")
+          if [[ "$CURRENT_VERSION" == *"-"* ]]; then
+            STABLE_VERSION=$(echo "$CURRENT_VERSION" | sed -E 's/-[a-zA-Z]+\.[0-9]+$//')
+            # Validate we have a proper X.Y.Z format after stripping
+            if ! [[ "$STABLE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Could not parse version '$CURRENT_VERSION' -> '$STABLE_VERSION'" >&2
+              exit 1
+            fi
+            echo "Stripping prerelease suffix: $CURRENT_VERSION -> $STABLE_VERSION"
+            jq --arg v "$STABLE_VERSION" '.version = $v' MCPForUnity/package.json > tmp.json
+            mv tmp.json MCPForUnity/package.json
+
+            # Also update pyproject.toml
+            sed -i "s/^version = .*/version = \"${STABLE_VERSION}\"/" Server/pyproject.toml
+          else
+            echo "Version is already stable: $CURRENT_VERSION"
+          fi
+
       - name: Compute new version
         id: compute
         shell: bash

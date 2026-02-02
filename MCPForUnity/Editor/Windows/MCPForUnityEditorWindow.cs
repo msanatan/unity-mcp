@@ -196,7 +196,7 @@ namespace MCPForUnity.Editor.Windows
             }
 
             // Initialize version label
-            UpdateVersionLabel(EditorPrefs.GetBool(EditorPrefKeys.UseBetaServer, true));
+            UpdateVersionLabel(EditorConfigurationCache.Instance.UseBetaServer);
 
             SetupTabs();
 

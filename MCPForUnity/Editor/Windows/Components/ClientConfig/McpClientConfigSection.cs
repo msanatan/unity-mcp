@@ -95,7 +95,22 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
             clientDropdown.choices = clientNames;
             if (clientNames.Count > 0)
             {
-                clientDropdown.index = 0;
+                // Restore last selected client from EditorPrefs
+                string lastClientId = EditorPrefs.GetString(EditorPrefKeys.LastSelectedClientId, string.Empty);
+                int restoredIndex = 0;
+                if (!string.IsNullOrEmpty(lastClientId))
+                {
+                    for (int i = 0; i < configurators.Count; i++)
+                    {
+                        if (string.Equals(configurators[i].Id, lastClientId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            restoredIndex = i;
+                            break;
+                        }
+                    }
+                }
+                clientDropdown.index = restoredIndex;
+                selectedClientIndex = restoredIndex;
             }
 
             claudeCliPathRow.style.display = DisplayStyle.None;
@@ -111,6 +126,11 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
             clientDropdown.RegisterValueChangedCallback(evt =>
             {
                 selectedClientIndex = clientDropdown.index;
+                // Persist the selected client so it's restored on next window open
+                if (selectedClientIndex >= 0 && selectedClientIndex < configurators.Count)
+                {
+                    EditorPrefs.SetString(EditorPrefKeys.LastSelectedClientId, configurators[selectedClientIndex].Id);
+                }
                 UpdateClientStatus();
                 UpdateManualConfiguration();
                 UpdateClaudeCliPathVisibility();
@@ -458,6 +478,9 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                 string projectDir = Path.GetDirectoryName(Application.dataPath);
                 bool useHttpTransport = EditorConfigurationCache.Instance.UseHttpTransport;
                 string claudePath = MCPServiceLocator.Paths.GetClaudeCliPath();
+                RuntimePlatform platform = Application.platform;
+                bool isRemoteScope = HttpEndpointUtility.IsRemoteScope();
+                string expectedPackageSource = AssetPathUtility.GetMcpServerPackageSource();
 
                 Task.Run(() =>
                 {
@@ -466,7 +489,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                     if (client is ClaudeCliMcpConfigurator claudeConfigurator)
                     {
                         // Use thread-safe version with captured main-thread values
-                        claudeConfigurator.CheckStatusWithProjectDir(projectDir, useHttpTransport, claudePath, attemptAutoRewrite: false);
+                        claudeConfigurator.CheckStatusWithProjectDir(projectDir, useHttpTransport, claudePath, platform, isRemoteScope, expectedPackageSource, attemptAutoRewrite: false);
                     }
                 }).ContinueWith(t =>
                 {
