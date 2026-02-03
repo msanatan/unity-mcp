@@ -293,7 +293,8 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
             bool useHttpTransport = EditorConfigurationCache.Instance.UseHttpTransport;
             string claudePath = MCPServiceLocator.Paths.GetClaudeCliPath();
             string httpUrl = HttpEndpointUtility.GetMcpRpcUrl();
-            var (uvxPath, gitUrl, packageName) = AssetPathUtility.GetUvxCommandParts();
+            var (uvxPath, _, packageName) = AssetPathUtility.GetUvxCommandParts();
+            string fromArgs = AssetPathUtility.GetBetaServerFromArgs(quoteFromPath: true);
             bool shouldForceRefresh = AssetPathUtility.ShouldForceUvxRefresh();
             string apiKey = EditorPrefs.GetString(EditorPrefKeys.ApiKey, string.Empty);
 
@@ -321,7 +322,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                         cliConfigurator.ConfigureWithCapturedValues(
                             projectDir, claudePath, pathPrepend,
                             useHttpTransport, httpUrl,
-                            uvxPath, gitUrl, packageName, shouldForceRefresh,
+                            uvxPath, fromArgs, packageName, shouldForceRefresh,
                             apiKey, serverTransport);
                     }
                     return (success: true, error: (string)null);
@@ -480,7 +481,8 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                 string claudePath = MCPServiceLocator.Paths.GetClaudeCliPath();
                 RuntimePlatform platform = Application.platform;
                 bool isRemoteScope = HttpEndpointUtility.IsRemoteScope();
-                string expectedPackageSource = AssetPathUtility.GetMcpServerPackageSource();
+                // Get expected package source considering beta mode (bypass cache for fresh read)
+                string expectedPackageSource = GetExpectedPackageSourceForBetaMode();
 
                 Task.Run(() =>
                 {
@@ -592,6 +594,42 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
 
             // Notify listeners about the client's configured transport
             OnClientTransportDetected?.Invoke(client.DisplayName, client.ConfiguredTransport);
+        }
+
+        /// <summary>
+        /// Gets the expected package source for validation, accounting for beta mode.
+        /// Uses the same logic as registration to ensure validation matches what was registered.
+        /// MUST be called from the main thread due to EditorPrefs access.
+        /// </summary>
+        private static string GetExpectedPackageSourceForBetaMode()
+        {
+            // Check for explicit override first
+            string gitUrlOverride = EditorPrefs.GetString(EditorPrefKeys.GitUrlOverride, "");
+            if (!string.IsNullOrEmpty(gitUrlOverride))
+            {
+                return gitUrlOverride;
+            }
+
+            // Check beta mode using the same logic as GetUseBetaServerWithDynamicDefault
+            // (bypass cache to ensure fresh read)
+            bool useBetaServer;
+            if (EditorPrefs.HasKey(EditorPrefKeys.UseBetaServer))
+            {
+                useBetaServer = EditorPrefs.GetBool(EditorPrefKeys.UseBetaServer, false);
+            }
+            else
+            {
+                // Dynamic default based on package version
+                useBetaServer = AssetPathUtility.IsPreReleaseVersion();
+            }
+
+            if (useBetaServer)
+            {
+                return "mcpforunityserver>=0.0.0a0";
+            }
+
+            // Standard mode uses exact version from package.json
+            return AssetPathUtility.GetMcpServerPackageSource();
         }
     }
 }

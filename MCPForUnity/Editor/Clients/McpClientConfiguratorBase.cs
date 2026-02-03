@@ -411,7 +411,8 @@ namespace MCPForUnity.Editor.Clients
             string claudePath = MCPServiceLocator.Paths.GetClaudeCliPath();
             RuntimePlatform platform = Application.platform;
             bool isRemoteScope = HttpEndpointUtility.IsRemoteScope();
-            string expectedPackageSource = AssetPathUtility.GetMcpServerPackageSource();
+            // Get expected package source considering beta mode (matches what Register() would use)
+            string expectedPackageSource = GetExpectedPackageSourceForValidation();
             return CheckStatusWithProjectDir(projectDir, useHttpTransport, claudePath, platform, isRemoteScope, expectedPackageSource, attemptAutoRewrite);
         }
 
@@ -599,7 +600,7 @@ namespace MCPForUnity.Editor.Clients
         public void ConfigureWithCapturedValues(
             string projectDir, string claudePath, string pathPrepend,
             bool useHttpTransport, string httpUrl,
-            string uvxPath, string gitUrl, string packageName, bool shouldForceRefresh,
+            string uvxPath, string fromArgs, string packageName, bool shouldForceRefresh,
             string apiKey,
             Models.ConfiguredTransport serverTransport)
         {
@@ -610,7 +611,7 @@ namespace MCPForUnity.Editor.Clients
             else
             {
                 RegisterWithCapturedValues(projectDir, claudePath, pathPrepend,
-                    useHttpTransport, httpUrl, uvxPath, gitUrl, packageName, shouldForceRefresh,
+                    useHttpTransport, httpUrl, uvxPath, fromArgs, packageName, shouldForceRefresh,
                     apiKey, serverTransport);
             }
         }
@@ -621,7 +622,7 @@ namespace MCPForUnity.Editor.Clients
         private void RegisterWithCapturedValues(
             string projectDir, string claudePath, string pathPrepend,
             bool useHttpTransport, string httpUrl,
-            string uvxPath, string gitUrl, string packageName, bool shouldForceRefresh,
+            string uvxPath, string fromArgs, string packageName, bool shouldForceRefresh,
             string apiKey,
             Models.ConfiguredTransport serverTransport)
         {
@@ -650,7 +651,7 @@ namespace MCPForUnity.Editor.Clients
                 // Note: --reinstall is not supported by uvx, use --no-cache --refresh instead
                 string devFlags = shouldForceRefresh ? "--no-cache --refresh " : string.Empty;
                 // Use --scope local to register in the project-local config, avoiding conflicts with user-level config (#664)
-                args = $"mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}--from \"{gitUrl}\" {packageName}";
+                args = $"mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}{fromArgs} {packageName}";
             }
 
             // Remove any existing registrations from ALL scopes to prevent stale config conflicts (#664)
@@ -724,12 +725,13 @@ namespace MCPForUnity.Editor.Clients
             }
             else
             {
-                var (uvxPath, gitUrl, packageName) = AssetPathUtility.GetUvxCommandParts();
+                var (uvxPath, _, packageName) = AssetPathUtility.GetUvxCommandParts();
                 // Use central helper that checks both DevModeForceServerRefresh AND local path detection.
                 // Note: --reinstall is not supported by uvx, use --no-cache --refresh instead
                 string devFlags = AssetPathUtility.ShouldForceUvxRefresh() ? "--no-cache --refresh " : string.Empty;
+                string fromArgs = AssetPathUtility.GetBetaServerFromArgs(quoteFromPath: true);
                 // Use --scope local to register in the project-local config, avoiding conflicts with user-level config (#664)
-                args = $"mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}--from \"{gitUrl}\" {packageName}";
+                args = $"mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}{fromArgs} {packageName}";
             }
 
             string projectDir = Path.GetDirectoryName(Application.dataPath);
@@ -834,13 +836,13 @@ namespace MCPForUnity.Editor.Clients
                 return "# Error: Configuration not available - check paths in Advanced Settings";
             }
 
-            string packageSource = AssetPathUtility.GetMcpServerPackageSource();
             // Use central helper that checks both DevModeForceServerRefresh AND local path detection.
             // Note: --reinstall is not supported by uvx, use --no-cache --refresh instead
             string devFlags = AssetPathUtility.ShouldForceUvxRefresh() ? "--no-cache --refresh " : string.Empty;
+            string fromArgs = AssetPathUtility.GetBetaServerFromArgs(quoteFromPath: true);
 
             return "# Register the MCP server with Claude Code:\n" +
-                   $"claude mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}--from \"{packageSource}\" mcp-for-unity\n\n" +
+                   $"claude mcp add --scope local --transport stdio UnityMCP -- \"{uvxPath}\" {devFlags}{fromArgs} mcp-for-unity\n\n" +
                    "# Unregister the MCP server (from all scopes to clean up any stale configs):\n" +
                    "claude mcp remove --scope local UnityMCP\n" +
                    "claude mcp remove --scope user UnityMCP\n" +
@@ -907,6 +909,43 @@ namespace MCPForUnity.Editor.Clients
                 }
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Gets the expected package source for validation, accounting for beta mode.
+        /// This should match what Register() would actually use for the --from argument.
+        /// MUST be called from the main thread due to EditorPrefs access.
+        /// </summary>
+        private static string GetExpectedPackageSourceForValidation()
+        {
+            // Check for explicit override first
+            string gitUrlOverride = EditorPrefs.GetString(EditorPrefKeys.GitUrlOverride, "");
+            if (!string.IsNullOrEmpty(gitUrlOverride))
+            {
+                return gitUrlOverride;
+            }
+
+            // Check beta mode using the same logic as GetUseBetaServerWithDynamicDefault
+            // (bypass cache to ensure fresh read)
+            bool useBetaServer;
+            bool hasPrefKey = EditorPrefs.HasKey(EditorPrefKeys.UseBetaServer);
+            if (hasPrefKey)
+            {
+                useBetaServer = EditorPrefs.GetBool(EditorPrefKeys.UseBetaServer, false);
+            }
+            else
+            {
+                // Dynamic default based on package version
+                useBetaServer = AssetPathUtility.IsPreReleaseVersion();
+            }
+
+            if (useBetaServer)
+            {
+                return "mcpforunityserver>=0.0.0a0";
+            }
+
+            // Standard mode uses exact version from package.json
+            return AssetPathUtility.GetMcpServerPackageSource();
         }
 
         /// <summary>
