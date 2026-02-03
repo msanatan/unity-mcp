@@ -89,7 +89,7 @@ jobs:
 
       - name: Commit to temporary branch and create PR
         id: commit
-        if: steps.version.outputs.already_beta != 'true'
+        if: steps.version.outputs.needs_update == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           BETA_VERSION: ${{ steps.version.outputs.unity_beta_version }}
