@@ -350,7 +350,8 @@ jobs:
         run: |
           set -euo pipefail
           # Enable auto-merge (requires repo setting "Allow auto-merge")
-          gh pr merge "$PR_NUMBER" --merge --auto || true
+          # Use --no-delete-branch to prevent deleting main (the head branch)
+          gh pr merge "$PR_NUMBER" --merge --auto --no-delete-branch || true
           # Wait for PR to be merged (poll up to 2 minutes)
           for i in {1..24}; do
             STATE=$(gh pr view "$PR_NUMBER" --json state -q '.state')
@@ -362,7 +363,7 @@ jobs:
             sleep 5
           done
           echo "Sync PR did not merge in time. Attempting direct merge..."
-          gh pr merge "$PR_NUMBER" --merge
+          gh pr merge "$PR_NUMBER" --merge --no-delete-branch
 
   publish_docker:
     name: Publish Docker image
