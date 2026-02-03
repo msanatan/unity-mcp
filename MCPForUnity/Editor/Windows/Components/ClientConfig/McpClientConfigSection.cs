@@ -53,6 +53,12 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
         /// </summary>
         public event Action<string, ConfiguredTransport> OnClientTransportDetected;
 
+        /// <summary>
+        /// Fired when a config mismatch is detected (e.g., version mismatch).
+        /// The parameter contains the client name and the mismatch message (null if no mismatch).
+        /// </summary>
+        public event Action<string, string> OnClientConfigMismatch;
+
         public VisualElement Root { get; private set; }
 
         public McpClientConfigSection(VisualElement root)
@@ -167,6 +173,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                 McpStatus.UnsupportedOS => "Unsupported OS",
                 McpStatus.MissingConfig => "Missing MCPForUnity Config",
                 McpStatus.Error => "Error",
+                McpStatus.VersionMismatch => "Version Mismatch",
                 _ => "Unknown",
             };
         }
@@ -286,7 +293,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
 
             statusRefreshInFlight.Add(client);
             bool isCurrentlyConfigured = client.Status == McpStatus.Configured;
-            ApplyStatusToUi(client, showChecking: true, customMessage: isCurrentlyConfigured ? "Unregistering..." : "Registering...");
+            ApplyStatusToUi(client, showChecking: true, customMessage: isCurrentlyConfigured ? "Unregistering..." : "Configuring...");
 
             // Capture ALL main-thread-only values before async task
             string projectDir = Path.GetDirectoryName(Application.dataPath);
@@ -581,6 +588,8 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                     case McpStatus.IncorrectPath:
                     case McpStatus.CommunicationError:
                     case McpStatus.NoResponse:
+                    case McpStatus.Error:
+                    case McpStatus.VersionMismatch:
                         clientStatusIndicator.AddToClassList("warning");
                         break;
                     default:
@@ -594,6 +603,19 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
 
             // Notify listeners about the client's configured transport
             OnClientTransportDetected?.Invoke(client.DisplayName, client.ConfiguredTransport);
+
+            // Notify listeners about version mismatch if applicable
+            if (client.Status == McpStatus.VersionMismatch && client is McpClientConfiguratorBase baseConfigurator)
+            {
+                // Get the mismatch reason from the configStatus field
+                string mismatchReason = baseConfigurator.Client.configStatus;
+                OnClientConfigMismatch?.Invoke(client.DisplayName, mismatchReason);
+            }
+            else
+            {
+                // Clear any previous mismatch warning
+                OnClientConfigMismatch?.Invoke(client.DisplayName, null);
+            }
         }
 
         /// <summary>
