@@ -724,8 +724,8 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
             string host = httpUri.Host;
             if (host == "0.0.0.0" || host == "::")
             {
-                McpLog.Warn($"[WebSocket] Base URL host '{host}' is bind-only; using 'localhost' for client connection.");
-                host = "localhost";
+                McpLog.Warn($"[WebSocket] Base URL host '{host}' is bind-only; using '127.0.0.1' for client connection.");
+                host = "127.0.0.1";
             }
 
             var builder = new UriBuilder(httpUri)

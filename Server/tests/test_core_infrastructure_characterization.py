@@ -658,7 +658,7 @@ class TestServerConfigDefaults:
         """Verify ServerConfig has expected default values."""
         config = ServerConfig()
 
-        assert config.unity_host == "localhost"
+        assert config.unity_host == "127.0.0.1"
         assert config.unity_port == 6400
         assert config.mcp_port == 6500
         assert config.connection_timeout == 30.0
