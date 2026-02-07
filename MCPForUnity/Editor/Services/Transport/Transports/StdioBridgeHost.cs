@@ -128,7 +128,6 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
                 }
             }
             EditorApplication.quitting += Stop;
-            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             EditorApplication.playModeStateChanged += _ =>
             {
                 if (ShouldAutoStartBridge())
@@ -443,14 +442,6 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
             }
 
             if (IsDebugEnabled()) McpLog.Info("StdioBridgeHost stopped.");
-        }
-
-        private static void OnBeforeAssemblyReload()
-        {
-            // Properly dispose sockets before domain reload destroys managed state.
-            // Without this, the OS socket stays open but the C# reference is lost,
-            // creating orphaned listeners that accept connections but never respond.
-            Stop();
         }
 
         private static async Task ListenerLoopAsync(CancellationToken token)
