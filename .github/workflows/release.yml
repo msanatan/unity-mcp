@@ -408,14 +408,37 @@ jobs:
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Merge sync PR
-        if: steps.sync_pr.outputs.skipped != 'true'
+        if: steps.sync_branch.outputs.skipped != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.sync_pr.outputs.pr_number }}
         shell: bash
         run: |
           set -euo pipefail
-          gh pr merge "$PR_NUMBER" --merge --no-delete-branch
+
+          # Best effort: auto-merge if repository settings allow it.
+          gh pr merge "$PR_NUMBER" --merge --auto --delete-branch || true
+
+          # Retry direct merge for up to 2 minutes while checks settle.
+          for i in {1..24}; do
+            STATE=$(gh pr view "$PR_NUMBER" --json state -q '.state')
+            if [[ "$STATE" == "MERGED" ]]; then
+              echo "Sync PR merged successfully."
+              exit 0
+            fi
+
+            if gh pr merge "$PR_NUMBER" --merge --delete-branch >/dev/null 2>&1; then
+              echo "Sync PR merged successfully."
+              exit 0
+            fi
+
+            echo "Waiting for sync PR to become mergeable... (state: $STATE)"
+            sleep 5
+          done
+
+          echo "Sync PR did not merge in time."
+          gh pr view "$PR_NUMBER" --json state,mergeStateStatus,isDraft -q '{state: .state, mergeStateStatus: .mergeStateStatus, isDraft: .isDraft}'
+          exit 1
 
   publish_docker:
     name: Publish Docker image
