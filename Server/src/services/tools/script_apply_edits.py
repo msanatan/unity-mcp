@@ -312,6 +312,7 @@ def _err(code: str, message: str, *, expected: dict[str, Any] | None = None, rew
 
 @mcp_for_unity_tool(
     name="script_apply_edits",
+    unity_target="manage_script",
     description=(
         """Structured C# edits (methods/classes) with safer boundaries - prefer this over raw text.
     Best practices:
