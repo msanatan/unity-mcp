@@ -4,6 +4,7 @@ from models.models import MCPResponse
 
 from services.custom_tool_service import (
     CustomToolService,
+    get_user_id_from_context,
     resolve_project_id_for_unity_instance,
 )
 from services.registry import mcp_for_unity_tool
@@ -40,4 +41,11 @@ async def execute_custom_tool(ctx: Context, tool_name: str, parameters: dict | N
         )
 
     service = CustomToolService.get_instance()
-    return await service.execute_tool(project_id, tool_name, unity_instance, parameters)
+    user_id = get_user_id_from_context(ctx)
+    return await service.execute_tool(
+        project_id,
+        tool_name,
+        unity_instance,
+        parameters,
+        user_id=user_id,
+    )
