@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using MCPForUnity.Editor.Constants;
 using MCPForUnity.Editor.Services;
@@ -48,7 +49,7 @@ namespace MCPForUnity.Editor.Tests.EditMode.Services
         }
 
         [Test]
-        public void IsToolEnabled_ReturnsTrue_WhenNoPreferenceExistsAndToolIsBuiltIn()
+        public void IsToolEnabled_ReturnsFalse_WhenToolDoesNotExist()
         {
             // Arrange - Ensure no preference exists
             string key = EditorPrefKeys.ToolEnabledPrefix + TestToolName;
@@ -110,6 +111,45 @@ namespace MCPForUnity.Editor.Tests.EditMode.Services
 
             // Assert - The disabled state should persist
             Assert.IsFalse(result, "Tool state should persist across service instances");
+        }
+
+        [Test]
+        public void DiscoverAllTools_DoesNotOverrideStoredFalse_ForBuiltInAutoRegisterFalseTool()
+        {
+            // Arrange
+            var service = new ToolDiscoveryService();
+            var builtInTool = service.DiscoverAllTools()
+                .FirstOrDefault(tool => tool.IsBuiltIn && !tool.AutoRegister);
+
+            Assert.IsNotNull(builtInTool, "Expected at least one built-in tool with AutoRegister=false.");
+
+            string key = EditorPrefKeys.ToolEnabledPrefix + builtInTool.Name;
+            bool hadOriginalKey = EditorPrefs.HasKey(key);
+            bool originalValue = hadOriginalKey && EditorPrefs.GetBool(key, true);
+
+            try
+            {
+                EditorPrefs.SetBool(key, false);
+                service.InvalidateCache();
+
+                // Act
+                service.DiscoverAllTools();
+                bool enabled = service.IsToolEnabled(builtInTool.Name);
+
+                // Assert
+                Assert.IsFalse(enabled, $"Built-in tool '{builtInTool.Name}' should remain disabled when preference is false.");
+            }
+            finally
+            {
+                if (hadOriginalKey)
+                {
+                    EditorPrefs.SetBool(key, originalValue);
+                }
+                else
+                {
+                    EditorPrefs.DeleteKey(key);
+                }
+            }
         }
     }
 }
