@@ -562,6 +562,29 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
             McpLog.Info($"[WebSocket] Sent {tools.Count} tools registration", false);
         }
 
+        public async Task ReregisterToolsAsync()
+        {
+            if (!IsConnected || _lifecycleCts == null)
+            {
+                McpLog.Warn("[WebSocket] Cannot reregister tools: not connected");
+                return;
+            }
+
+            try
+            {
+                await SendRegisterToolsAsync(_lifecycleCts.Token).ConfigureAwait(false);
+                McpLog.Info("[WebSocket] Tool reregistration completed", false);
+            }
+            catch (System.OperationCanceledException)
+            {
+                McpLog.Warn("[WebSocket] Tool reregistration cancelled");
+            }
+            catch (System.Exception ex)
+            {
+                McpLog.Error($"[WebSocket] Tool reregistration failed: {ex.Message}");
+            }
+        }
+
         private async Task HandleExecuteAsync(JObject payload, CancellationToken token)
         {
             string commandId = payload.Value<string>("id");

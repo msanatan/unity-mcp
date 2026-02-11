@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using MCPForUnity.Editor.Constants;
 using MCPForUnity.Editor.Helpers;
 using MCPForUnity.Editor.Services;
+using MCPForUnity.Editor.Services.Transport;
 using MCPForUnity.Editor.Tools;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -236,6 +238,30 @@ namespace MCPForUnity.Editor.Windows.Components.Tools
             {
                 UpdateSummary();
             }
+
+            // Trigger tool reregistration with connected MCP server
+            ReregisterToolsAsync();
+        }
+
+        private void ReregisterToolsAsync()
+        {
+            // Fire and forget - don't block UI
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var transportManager = MCPServiceLocator.TransportManager;
+                    var client = transportManager.GetClient(TransportMode.Http);
+                    if (client != null && client.IsConnected)
+                    {
+                        client.ReregisterToolsAsync().Wait();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    McpLog.Warn($"Failed to reregister tools: {ex.Message}");
+                }
+            });
         }
 
         private void SetAllToolsState(bool enabled)
@@ -258,6 +284,9 @@ namespace MCPForUnity.Editor.Windows.Components.Tools
             }
 
             UpdateSummary();
+
+            // Trigger tool reregistration after bulk change
+            ReregisterToolsAsync();
         }
 
         private void UpdateSummary()
