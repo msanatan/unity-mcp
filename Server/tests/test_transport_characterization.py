@@ -310,10 +310,50 @@ class TestUnityInstanceMiddlewareInjection:
         assert "manage_asset" not in names
 
     @pytest.mark.asyncio
-    async def test_list_tools_skips_filter_when_no_enabled_set_available(self, mock_context, monkeypatch):
+    async def test_list_tools_filters_when_enabled_set_is_empty(self, mock_context, monkeypatch):
         """
-        Current behavior: if Unity has not yet registered tool definitions for a
-        session, on_list_tools() leaves the FastMCP list unchanged.
+        Current behavior: when a Unity session is resolved but it has zero enabled
+        tools registered, Unity-managed tools are filtered out while server-only
+        and unknown tools remain visible.
+        """
+        middleware = UnityInstanceMiddleware()
+        middleware_ctx = Mock()
+        middleware_ctx.fastmcp_context = mock_context
+
+        mock_context.set_state("unity_instance", "Project@abc123")
+        monkeypatch.setattr(config, "transport_mode", "http")
+
+        original_tools = [
+            SimpleNamespace(name="manage_scene"),
+            SimpleNamespace(name="manage_asset"),
+            SimpleNamespace(name="create_script"),
+            SimpleNamespace(name="set_active_instance"),
+            SimpleNamespace(name="custom_server_tool"),
+        ]
+
+        async def call_next(_ctx):
+            return original_tools
+
+        with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
+            with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
+                with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
+                    mock_get_tools.return_value = []
+
+                    filtered = await middleware.on_list_tools(middleware_ctx, call_next)
+
+        names = [tool.name for tool in filtered]
+        assert "set_active_instance" in names
+        assert "custom_server_tool" in names
+        assert "manage_scene" not in names
+        assert "manage_asset" not in names
+        assert "create_script" not in names
+
+    @pytest.mark.asyncio
+    async def test_list_tools_skips_filter_when_enabled_set_lookup_fails(self, mock_context, monkeypatch):
+        """
+        Current behavior: if enabled-tool lookup fails unexpectedly, on_list_tools()
+        leaves the FastMCP list unchanged to avoid hiding tools due to transient
+        PluginHub failures.
         """
         middleware = UnityInstanceMiddleware()
         middleware_ctx = Mock()
@@ -334,11 +374,39 @@ class TestUnityInstanceMiddlewareInjection:
         with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
             with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
                 with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
-                    mock_get_tools.return_value = []
+                    mock_get_tools.side_effect = RuntimeError("hub unavailable")
 
                     filtered = await middleware.on_list_tools(middleware_ctx, call_next)
 
         assert [tool.name for tool in filtered] == [tool.name for tool in original_tools]
+
+    @pytest.mark.asyncio
+    async def test_list_tools_uses_user_scoped_tool_lookup_in_hosted_mode(self, mock_context, monkeypatch):
+        """
+        Current behavior: in remote-hosted HTTP mode, tool filtering fetches
+        Unity-registered tools scoped to the current user.
+        """
+        middleware = UnityInstanceMiddleware()
+        middleware_ctx = Mock()
+        middleware_ctx.fastmcp_context = mock_context
+
+        mock_context.set_state("unity_instance", "Project@abc123")
+        mock_context.set_state("user_id", "user-123")
+        monkeypatch.setattr(config, "transport_mode", "http")
+        monkeypatch.setattr(config, "http_remote_hosted", True)
+
+        async def call_next(_ctx):
+            return [SimpleNamespace(name="manage_scene")]
+
+        with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
+            with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
+                with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
+                    mock_get_tools.return_value = [SimpleNamespace(name="manage_scene")]
+
+                    filtered = await middleware.on_list_tools(middleware_ctx, call_next)
+
+        assert [tool.name for tool in filtered] == ["manage_scene"]
+        mock_get_tools.assert_awaited_once_with("abc123", user_id="user-123")
 
 
 # ============================================================================

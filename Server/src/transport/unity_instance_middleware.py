@@ -307,7 +307,7 @@ class UnityInstanceMiddleware(Middleware):
             return tools
 
         enabled_tool_names = await self._resolve_enabled_tool_names_for_context(context)
-        if not enabled_tool_names:
+        if enabled_tool_names is None:
             return tools
 
         filtered = []
@@ -335,7 +335,13 @@ class UnityInstanceMiddleware(Middleware):
             try:
                 sessions_data = await PluginHub.get_sessions(user_id=user_id)
                 sessions = sessions_data.sessions if sessions_data else {}
-            except Exception:
+            except Exception as exc:
+                logger.debug(
+                    "Failed to fetch sessions for tool filtering (user_id=%s, %s)",
+                    user_id,
+                    type(exc).__name__,
+                    exc_info=True,
+                )
                 return None
 
             if not sessions:
@@ -359,10 +365,19 @@ class UnityInstanceMiddleware(Middleware):
             return None
 
         enabled_tool_names: set[str] = set()
+        resolved_any_project = False
         for project_hash in project_hashes:
             try:
-                registered_tools = await PluginHub.get_tools_for_project(project_hash)
-            except Exception:
+                registered_tools = await PluginHub.get_tools_for_project(project_hash, user_id=user_id)
+                resolved_any_project = True
+            except Exception as exc:
+                logger.debug(
+                    "Failed to fetch tools for project hash %s (user_id=%s, %s)",
+                    project_hash,
+                    user_id,
+                    type(exc).__name__,
+                    exc_info=True,
+                )
                 continue
 
             for tool in registered_tools:
@@ -370,7 +385,10 @@ class UnityInstanceMiddleware(Middleware):
                 if isinstance(tool_name, str) and tool_name:
                     enabled_tool_names.add(tool_name)
 
-        return enabled_tool_names or None
+        if not resolved_any_project:
+            return None
+
+        return enabled_tool_names
 
     @staticmethod
     def _resolve_candidate_project_hashes(active_instance: str | None) -> list[str]:

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
+using System.Threading.Tasks;
 using MCPForUnity.Editor.Constants;
 using MCPForUnity.Editor.Helpers;
 using MCPForUnity.Editor.Services;
@@ -252,21 +252,23 @@ namespace MCPForUnity.Editor.Windows.Components.Tools
 
         private void ReregisterToolsAsync()
         {
-            // Fire and forget - don't block UI
-            ThreadPool.QueueUserWorkItem(_ =>
+            // Fire and forget - don't block UI thread
+            var transportManager = MCPServiceLocator.TransportManager;
+            var client = transportManager.GetClient(TransportMode.Http);
+            if (client == null || !client.IsConnected)
+            {
+                return;
+            }
+
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    var transportManager = MCPServiceLocator.TransportManager;
-                    var client = transportManager.GetClient(TransportMode.Http);
-                    if (client != null && client.IsConnected)
-                    {
-                        client.ReregisterToolsAsync().Wait();
-                    }
+                    await client.ReregisterToolsAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    McpLog.Warn($"Failed to reregister tools: {ex.Message}");
+                    McpLog.Warn($"Failed to reregister tools: {ex}");
                 }
             });
         }
