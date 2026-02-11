@@ -18,6 +18,7 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, Mock, MagicMock, patch, call
 from datetime import datetime, timezone
 import uuid
+from types import SimpleNamespace
 
 from transport.unity_instance_middleware import UnityInstanceMiddleware, get_unity_instance_middleware, set_unity_instance_middleware
 from transport.plugin_registry import PluginRegistry, PluginSession
@@ -31,6 +32,7 @@ from transport.models import (
     SessionDetails,
 )
 from models.models import ToolDefinitionModel
+from core.config import config
 
 
 # ============================================================================
@@ -265,6 +267,78 @@ class TestUnityInstanceMiddlewareInjection:
         calls = [c for c in mock_context.set_state.call_args_list
                 if len(c[0]) > 0 and c[0][0] == "unity_instance"]
         assert len(calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_tools_filters_disabled_unity_tools_and_aliases(self, mock_context, monkeypatch):
+        """
+        Current behavior: in HTTP mode with a connected Unity session, on_list_tools()
+        uses PluginHub-registered tool names to hide disabled Unity tools while keeping
+        server-only tools visible. Aliases like create_script follow manage_script state.
+        """
+        middleware = UnityInstanceMiddleware()
+        middleware_ctx = Mock()
+        middleware_ctx.fastmcp_context = mock_context
+
+        mock_context.set_state("unity_instance", "Project@abc123")
+        monkeypatch.setattr(config, "transport_mode", "http")
+
+        available_tools = [
+            SimpleNamespace(name="manage_scene"),
+            SimpleNamespace(name="manage_script"),
+            SimpleNamespace(name="set_active_instance"),
+            SimpleNamespace(name="manage_asset"),
+            SimpleNamespace(name="create_script"),
+        ]
+
+        async def call_next(_ctx):
+            return available_tools
+
+        with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
+            with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
+                with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
+                    mock_get_tools.return_value = [
+                        SimpleNamespace(name="manage_scene"),
+                        SimpleNamespace(name="manage_script"),
+                    ]
+
+                    filtered = await middleware.on_list_tools(middleware_ctx, call_next)
+
+        names = [tool.name for tool in filtered]
+        assert "manage_scene" in names
+        assert "create_script" in names
+        assert "set_active_instance" in names
+        assert "manage_asset" not in names
+
+    @pytest.mark.asyncio
+    async def test_list_tools_skips_filter_when_no_enabled_set_available(self, mock_context, monkeypatch):
+        """
+        Current behavior: if Unity has not yet registered tool definitions for a
+        session, on_list_tools() leaves the FastMCP list unchanged.
+        """
+        middleware = UnityInstanceMiddleware()
+        middleware_ctx = Mock()
+        middleware_ctx.fastmcp_context = mock_context
+
+        mock_context.set_state("unity_instance", "Project@abc123")
+        monkeypatch.setattr(config, "transport_mode", "http")
+
+        original_tools = [
+            SimpleNamespace(name="manage_scene"),
+            SimpleNamespace(name="manage_asset"),
+            SimpleNamespace(name="set_active_instance"),
+        ]
+
+        async def call_next(_ctx):
+            return original_tools
+
+        with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
+            with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
+                with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
+                    mock_get_tools.return_value = []
+
+                    filtered = await middleware.on_list_tools(middleware_ctx, call_next)
+
+        assert [tool.name for tool in filtered] == [tool.name for tool in original_tools]
 
 
 # ============================================================================
