@@ -1007,6 +1007,92 @@ class TestPluginHubConfiguration:
         with pytest.raises(RuntimeError, match="not configured"):
             asyncio.run(PluginHub.send_command("sess-id", "ping", {}))
 
+    @pytest.mark.asyncio
+    async def test_plugin_hub_get_tools_for_project_honors_user_scope(
+        self,
+        configured_plugin_hub,
+        plugin_registry,
+        monkeypatch,
+    ):
+        """
+        Current behavior: in remote-hosted mode, get_tools_for_project()
+        resolves by (user_id, project_hash) so users with the same hash do not
+        see each other's tool registrations.
+        """
+        monkeypatch.setattr(config, "http_remote_hosted", True)
+
+        await plugin_registry.register(
+            session_id="sess-user-a",
+            project_name="Project",
+            project_hash="shared-hash",
+            unity_version="2022.3",
+            user_id="user-a",
+        )
+        await plugin_registry.register(
+            session_id="sess-user-b",
+            project_name="Project",
+            project_hash="shared-hash",
+            unity_version="2022.3",
+            user_id="user-b",
+        )
+        await plugin_registry.register_tools_for_session(
+            "sess-user-a",
+            [ToolDefinitionModel(name="tool_a", description="Tool A")],
+        )
+        await plugin_registry.register_tools_for_session(
+            "sess-user-b",
+            [ToolDefinitionModel(name="tool_b", description="Tool B")],
+        )
+
+        tools_for_a = await PluginHub.get_tools_for_project("shared-hash", user_id="user-a")
+        tools_for_b = await PluginHub.get_tools_for_project("shared-hash", user_id="user-b")
+
+        assert [tool.name for tool in tools_for_a] == ["tool_a"]
+        assert [tool.name for tool in tools_for_b] == ["tool_b"]
+
+    @pytest.mark.asyncio
+    async def test_plugin_hub_get_tool_definition_honors_user_scope(
+        self,
+        configured_plugin_hub,
+        plugin_registry,
+        monkeypatch,
+    ):
+        """
+        Current behavior: in remote-hosted mode, get_tool_definition() is
+        user-scoped for shared project hashes.
+        """
+        monkeypatch.setattr(config, "http_remote_hosted", True)
+
+        await plugin_registry.register(
+            session_id="sess-user-a",
+            project_name="Project",
+            project_hash="shared-hash",
+            unity_version="2022.3",
+            user_id="user-a",
+        )
+        await plugin_registry.register(
+            session_id="sess-user-b",
+            project_name="Project",
+            project_hash="shared-hash",
+            unity_version="2022.3",
+            user_id="user-b",
+        )
+        await plugin_registry.register_tools_for_session(
+            "sess-user-a",
+            [ToolDefinitionModel(name="tool_a", description="Tool A")],
+        )
+        await plugin_registry.register_tools_for_session(
+            "sess-user-b",
+            [ToolDefinitionModel(name="tool_b", description="Tool B")],
+        )
+
+        tool_for_a = await PluginHub.get_tool_definition("shared-hash", "tool_a", user_id="user-a")
+        tool_for_b = await PluginHub.get_tool_definition("shared-hash", "tool_a", user_id="user-b")
+
+        assert tool_for_a is not None
+        assert tool_for_a.name == "tool_a"
+        assert tool_for_b is None
+
 
 # ============================================================================
 # GLOBAL MIDDLEWARE SINGLETON TESTS
