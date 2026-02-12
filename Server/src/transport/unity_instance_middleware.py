@@ -349,7 +349,10 @@ class UnityInstanceMiddleware(Middleware):
         for project_hash in project_hashes:
             try:
                 registered_tools = await PluginHub.get_tools_for_project(project_hash, user_id=user_id)
-                resolved_any_project = True
+                # Only mark as resolved if tools are actually registered.
+                # An empty list means register_tools hasn't been sent yet.
+                if registered_tools:
+                    resolved_any_project = True
             except Exception as exc:
                 logger.debug(
                     "Failed to fetch tools for project hash %s (user_id=%s, %s)",

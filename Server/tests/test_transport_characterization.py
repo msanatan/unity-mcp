@@ -335,11 +335,12 @@ class TestUnityInstanceMiddlewareInjection:
         assert "manage_asset" not in names
 
     @pytest.mark.asyncio
-    async def test_list_tools_filters_when_enabled_set_is_empty(self, mock_context, monkeypatch):
+    async def test_list_tools_skips_filter_when_no_tools_registered_yet(self, mock_context, monkeypatch):
         """
-        Current behavior: when a Unity session is resolved but it has zero enabled
-        tools registered, Unity-managed tools are filtered out while server-only
-        and unknown tools remain visible.
+        When a Unity session is connected but register_tools has not been sent yet
+        (empty registered_tools), defer filtering to avoid hiding tools that may
+        be valid once register_tools arrives. This prevents clients that cache
+        early list_tools responses from getting persistently incomplete tool lists.
         """
         middleware = UnityInstanceMiddleware()
         middleware_ctx = Mock()
@@ -374,7 +375,65 @@ class TestUnityInstanceMiddlewareInjection:
                                     )
                                 }
                             )
+                            # Simulate register_tools not yet sent
                             mock_get_tools.return_value = []
+
+                            filtered = await middleware.on_list_tools(middleware_ctx, call_next)
+
+        names = [tool.name for tool in filtered]
+        # All tools should be visible when register_tools hasn't been sent yet
+        assert "manage_scene" in names
+        assert "manage_asset" in names
+        assert "create_script" in names
+        assert "set_active_instance" in names
+        assert "custom_server_tool" in names
+
+    @pytest.mark.asyncio
+    async def test_list_tools_filters_when_all_tools_disabled(self, mock_context, monkeypatch):
+        """
+        When register_tools has been sent with an empty tool list (all tools disabled),
+        Unity-managed tools are filtered out while server-only tools remain visible.
+        This differs from the "no tools registered yet" case where we defer filtering.
+        """
+        middleware = UnityInstanceMiddleware()
+        middleware_ctx = Mock()
+        middleware_ctx.fastmcp_context = mock_context
+
+        mock_context.set_state("unity_instance", "Project@abc123")
+        monkeypatch.setattr(config, "transport_mode", "http")
+
+        original_tools = [
+            SimpleNamespace(name="manage_scene"),
+            SimpleNamespace(name="manage_asset"),
+            SimpleNamespace(name="create_script"),
+            SimpleNamespace(name="set_active_instance"),
+            SimpleNamespace(name="custom_server_tool"),
+        ]
+
+        async def call_next(_ctx):
+            return original_tools
+
+        # Simulate a registered tool that indicates all tools are disabled
+        disabled_tool = SimpleNamespace(name="_marker_tool_indicates_registration_sent")
+        registered_tools = [disabled_tool]
+
+        with patch.object(middleware, "_inject_unity_instance", new=AsyncMock()):
+            with patch("transport.unity_instance_middleware.PluginHub.is_configured", return_value=True):
+                with patch("transport.unity_instance_middleware.get_registered_tools", return_value=_tool_registry_for_visibility_tests()):
+                    with patch("transport.unity_instance_middleware.PluginHub.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
+                        with patch("transport.unity_instance_middleware.PluginHub.get_tools_for_project", new_callable=AsyncMock) as mock_get_tools:
+                            mock_get_sessions.return_value = SessionList(
+                                sessions={
+                                    "session-1": SessionDetails(
+                                        project="Project",
+                                        hash="abc123",
+                                        unity_version="2022.3",
+                                        connected_at="2025-01-26T00:00:00Z",
+                                    )
+                                }
+                            )
+                            # register_tools has been sent (non-empty list), but all tools disabled
+                            mock_get_tools.return_value = registered_tools
 
                             filtered = await middleware.on_list_tools(middleware_ctx, call_next)
 
