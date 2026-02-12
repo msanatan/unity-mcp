@@ -237,9 +237,13 @@ def normalize_string_list(value: Any, param_name: str = "list") -> tuple[list[st
 
     # Try parsing as JSON string (immediate parsing for string input)
     if isinstance(value, str):
+        val_trimmed = value.strip()
         # Check for obviously invalid values
-        if value in ("[object Object]", "undefined", "null", ""):
+        if val_trimmed in ("[object Object]", "undefined", "null", ""):
             return None, f"{param_name} received invalid value: '{value}'. Expected a JSON array like [\"item1\", \"item2\"]"
+
+        # Check if it looks like a JSON array but will fail to parse
+        looks_like_json_array = (val_trimmed.startswith("[") and val_trimmed.endswith("]"))
 
         parsed = parse_json_payload(value)
         # If parsing succeeded and result is a list, validate and return
@@ -248,7 +252,11 @@ def normalize_string_list(value: Any, param_name: str = "list") -> tuple[list[st
             if all(isinstance(item, str) for item in parsed):
                 return parsed, None
             return None, f"{param_name} must contain only strings, got: {parsed}"
-        # If parsing returned the original string (invalid JSON), try treating as single item
+        # If parsing returned the original string but it looked like a JSON array,
+        # it's malformed JSON - return error instead of treating as single item
+        if parsed == value and looks_like_json_array:
+            return None, f"{param_name} has invalid JSON syntax: '{value}'. Expected a valid JSON array like [\"item1\", \"item2\"]"
+        # If parsing returned the original string (plain non-JSON), treat as single item
         if parsed == value:
             # Treat as single-element list
             return [value], None
