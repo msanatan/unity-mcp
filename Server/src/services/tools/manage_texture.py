@@ -10,7 +10,7 @@ from mcp.types import ToolAnnotations
 
 from services.registry import mcp_for_unity_tool
 from services.tools import get_unity_instance_from_context
-from services.tools.utils import parse_json_payload, coerce_bool, coerce_int, normalize_color, normalize_string_list
+from services.tools.utils import parse_json_payload, coerce_bool, coerce_int, normalize_color
 from transport.unity_transport import send_with_unity_instance
 from transport.legacy.unity_connection import async_send_command_with_retry
 from services.tools.preflight import preflight
@@ -49,40 +49,30 @@ def _normalize_palette(value: Any) -> tuple[list[list[int]] | None, str | None]:
     if value is None:
         return None, None
 
-    # Already a list - validate structure and return
-    if isinstance(value, list):
-        return value, None
-
-    # Try parsing as string (immediate parsing for string input)
+    # Try parsing as string first
     if isinstance(value, str):
         if value in ("[object Object]", "undefined", "null", ""):
             return None, f"palette received invalid value: '{value}'"
         parsed = parse_json_payload(value)
-        # If parsing succeeded and result is a list, validate and return
+        # If parsing succeeded and result is a list, normalize and return
         if isinstance(parsed, list):
-            # Normalize each color in the palette
-            normalized = []
-            for i, color in enumerate(parsed):
-                color_normalized, error = _normalize_color_int(color)
-                if error:
-                    return None, f"palette[{i}]: {error}"
-                normalized.append(color_normalized)
-            return normalized, None
+            value = parsed
         # If parsing returned the original string (invalid JSON), treat as error
-        if parsed == value:
+        elif parsed == value:
             return None, f"palette must be a list of colors, got invalid string: '{value}'"
+        else:
+            return None, f"palette must be a list of colors (list), got string that parsed to {type(parsed).__name__}"
 
-        return None, f"palette must be a list of colors (list), got string that parsed to {type(parsed).__name__}"
-
+    # Validate and normalize each color in the palette
     if not isinstance(value, list):
         return None, f"palette must be a list of colors, got {type(value).__name__}"
 
     normalized = []
     for i, color in enumerate(value):
-        parsed, error = _normalize_color_int(color)
+        color_normalized, error = _normalize_color_int(color)
         if error:
             return None, f"palette[{i}]: {error}"
-        normalized.append(parsed)
+        normalized.append(color_normalized)
 
     return normalized, None
 
