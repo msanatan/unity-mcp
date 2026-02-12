@@ -53,7 +53,7 @@ batch_execute(
 )
 ```
 
-**Max 25 commands per batch.** Use `fail_fast=True` for dependent operations. Batches are not transactional (no rollback on partial failure).
+**Max 25 commands per batch by default (configurable in Unity MCP Tools window, max 100).** Use `fail_fast=True` for dependent operations.
 
 ### 3. Use `screenshot` in manage_scene to Verify Visual Results
 
