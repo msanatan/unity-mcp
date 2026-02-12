@@ -214,12 +214,13 @@ def normalize_vector3(value: Any, param_name: str = "vector") -> tuple[list[floa
 
 def normalize_string_list(value: Any, param_name: str = "list") -> tuple[list[str] | None, str | None]:
     """
-    Normalize a string list parameter that might be a JSON string.
+    Normalize a string list parameter that might be a JSON string or plain string.
 
     Handles various input formats from MCP clients/LLMs:
     - None -> (None, None)
     - list/tuple of strings -> (list, None)
     - JSON string '["a", "b", "c"]' -> parsed and normalized
+    - Plain non-JSON string "foo" -> treated as ["foo"]
 
     Returns:
         Tuple of (parsed_list, error_message). If error_message is set, parsed_list is None.
