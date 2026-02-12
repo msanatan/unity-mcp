@@ -212,6 +212,51 @@ def normalize_vector3(value: Any, param_name: str = "vector") -> tuple[list[floa
     return None, f"{param_name} must be a list, dict, or string, got {type(value).__name__}"
 
 
+def normalize_string_list(value: Any, param_name: str = "list") -> tuple[list[str] | None, str | None]:
+    """
+    Normalize a string list parameter that might be a JSON string.
+
+    Handles various input formats from MCP clients/LLMs:
+    - None -> (None, None)
+    - list/tuple of strings -> (list, None)
+    - JSON string '["a", "b", "c"]' -> parsed and normalized
+
+    Returns:
+        Tuple of (parsed_list, error_message). If error_message is set, parsed_list is None.
+    """
+    if value is None:
+        return None, None
+
+    # Already a list/tuple - validate and return
+    if isinstance(value, (list, tuple)):
+        # Ensure all elements are strings
+        if all(isinstance(item, str) for item in value):
+            return list(value), None
+        return None, f"{param_name} must contain only strings, got mixed types"
+
+    # Try parsing as JSON string (immediate parsing for string input)
+    if isinstance(value, str):
+        # Check for obviously invalid values
+        if value in ("[object Object]", "undefined", "null", ""):
+            return None, f"{param_name} received invalid value: '{value}'. Expected a JSON array like [\"item1\", \"item2\"]"
+
+        parsed = parse_json_payload(value)
+        # If parsing succeeded and result is a list, validate and return
+        if isinstance(parsed, list):
+            # Validate all elements are strings
+            if all(isinstance(item, str) for item in parsed):
+                return parsed, None
+            return None, f"{param_name} must contain only strings, got: {parsed}"
+        # If parsing returned the original string (invalid JSON), try treating as single item
+        if parsed == value:
+            # Treat as single-element list
+            return [value], None
+
+        return None, f"{param_name} must be a JSON array (list), got string that parsed to {type(parsed).__name__}"
+
+    return None, f"{param_name} must be a list or JSON string, got {type(value).__name__}"
+
+
 def normalize_color(value: Any, output_range: str = "float") -> tuple[list[float] | None, str | None]:
     """
     Normalize a color parameter to [r, g, b, a] format.
