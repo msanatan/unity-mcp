@@ -262,7 +262,10 @@ namespace MCPForUnity.Editor.Windows
                 advancedSection.OnGitUrlChanged += () =>
                     clientConfigSection?.UpdateManualConfiguration();
                 advancedSection.OnHttpServerCommandUpdateRequested += () =>
+                {
                     connectionSection?.UpdateHttpServerCommandDisplay();
+                    connectionSection?.UpdateConnectionStatus();
+                };
                 advancedSection.OnTestConnectionRequested += async () =>
                 {
                     if (connectionSection != null)

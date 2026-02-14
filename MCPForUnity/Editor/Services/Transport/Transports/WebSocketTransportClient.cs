@@ -86,6 +86,15 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
                 ? EditorPrefs.GetString(EditorPrefKeys.ApiKey, string.Empty)
                 : string.Empty;
 
+            if (HttpEndpointUtility.IsRemoteScope()
+                && !HttpEndpointUtility.IsCurrentRemoteUrlAllowed(out string remoteUrlError))
+            {
+                string message = remoteUrlError ?? "HTTP Remote URL is not allowed by current security settings.";
+                _state = TransportState.Disconnected(TransportDisplayName, message);
+                McpLog.Error($"[WebSocket] {message}");
+                return false;
+            }
+
             // Get project root path (strip /Assets from dataPath) for focus nudging
             string dataPath = Application.dataPath;
             if (!string.IsNullOrEmpty(dataPath))

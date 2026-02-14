@@ -654,13 +654,32 @@ namespace MCPForUnity.Editor.Services
                                 }
                                 return false;
                             }
-                            if (!quiet)
+
+                            // If the pidfile PID is no longer the active listener, treat handshake state as stale
+                            // and continue with guarded port-based heuristics below.
+                            if (!pidIsListener)
                             {
-                                McpLog.Warn(
-                                    $"Refusing to stop port {port}: pidfile PID {pidFromFile} failed validation " +
-                                    $"(listener={pidIsListener}, tokenMatch={tokenMatches}, tokenQueryOk={tokenQueryOk}).");
+                                if (!quiet)
+                                {
+                                    McpLog.Warn(
+                                        $"Stale pidfile for port {port}: pidfile PID {pidFromFile} is not the current listener " +
+                                        $"(tokenMatch={tokenMatches}, tokenQueryOk={tokenQueryOk}). Falling back to guarded port heuristics.");
+                                }
+                                try { DeletePidFile(pidFilePath); } catch { }
+                                ClearLocalServerPidTracking();
                             }
-                            return false;
+                            else
+                            {
+                                // PID still owns the listener, but identity validation failed.
+                                // Fail closed to avoid terminating unrelated processes.
+                                if (!quiet)
+                                {
+                                    McpLog.Warn(
+                                        $"Refusing to stop port {port}: pidfile PID {pidFromFile} failed validation " +
+                                        $"(listener={pidIsListener}, tokenMatch={tokenMatches}, tokenQueryOk={tokenQueryOk}).");
+                                }
+                                return false;
+                            }
                         }
                     }
                 }
@@ -875,7 +894,8 @@ namespace MCPForUnity.Editor.Services
         }
 
         /// <summary>
-        /// Check if a URL is local (localhost, 127.0.0.1, 0.0.0.0)
+        /// Check if a URL is local or bind-all (localhost/loopback and 0.0.0.0/::).
+        /// This helper is intentionally broader than local-launch policy checks.
         /// </summary>
         private static bool IsLocalUrl(string url)
         {
@@ -884,8 +904,8 @@ namespace MCPForUnity.Editor.Services
             try
             {
                 var uri = new Uri(url);
-                string host = uri.Host.ToLower();
-                return host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "::1";
+                string host = uri.Host;
+                return HttpEndpointUtility.IsLoopbackHost(host) || HttpEndpointUtility.IsBindAllInterfacesHost(host);
             }
             catch
             {
@@ -899,7 +919,13 @@ namespace MCPForUnity.Editor.Services
         public bool CanStartLocalServer()
         {
             bool useHttpTransport = EditorConfigurationCache.Instance.UseHttpTransport;
-            return useHttpTransport && IsLocalUrl();
+            if (!useHttpTransport)
+            {
+                return false;
+            }
+
+            string httpUrl = HttpEndpointUtility.GetLocalBaseUrl();
+            return HttpEndpointUtility.IsHttpLocalUrlAllowedForLaunch(httpUrl, out _);
         }
 
         private System.Diagnostics.ProcessStartInfo CreateTerminalProcessStartInfo(string command)
