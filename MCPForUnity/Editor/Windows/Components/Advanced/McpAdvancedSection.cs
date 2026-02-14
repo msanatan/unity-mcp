@@ -26,6 +26,8 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
         private Button clearGitUrlButton;
         private Toggle debugLogsToggle;
         private Toggle devModeForceRefreshToggle;
+        private Toggle allowLanHttpBindToggle;
+        private Toggle allowInsecureRemoteHttpToggle;
         private TextField deploySourcePath;
         private Button browseDeploySourceButton;
         private Button clearDeploySourceButton;
@@ -64,6 +66,8 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
             clearGitUrlButton = Root.Q<Button>("clear-git-url-button");
             debugLogsToggle = Root.Q<Toggle>("debug-logs-toggle");
             devModeForceRefreshToggle = Root.Q<Toggle>("dev-mode-force-refresh-toggle");
+            allowLanHttpBindToggle = Root.Q<Toggle>("allow-lan-http-bind-toggle");
+            allowInsecureRemoteHttpToggle = Root.Q<Toggle>("allow-insecure-remote-http-toggle");
             deploySourcePath = Root.Q<TextField>("deploy-source-path");
             browseDeploySourceButton = Root.Q<Button>("browse-deploy-source-button");
             clearDeploySourceButton = Root.Q<Button>("clear-deploy-source-button");
@@ -98,6 +102,20 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
                 if (forceRefreshLabel != null)
                     forceRefreshLabel.tooltip = devModeForceRefreshToggle.tooltip;
             }
+            if (allowLanHttpBindToggle != null)
+            {
+                allowLanHttpBindToggle.tooltip = "Allow HTTP Local to bind on all interfaces (0.0.0.0 / ::). Disabled by default because devices on your LAN may reach MCP tools.";
+                var lanBindLabel = allowLanHttpBindToggle?.parent?.Q<Label>();
+                if (lanBindLabel != null)
+                    lanBindLabel.tooltip = allowLanHttpBindToggle.tooltip;
+            }
+            if (allowInsecureRemoteHttpToggle != null)
+            {
+                allowInsecureRemoteHttpToggle.tooltip = "Allow HTTP Remote over plaintext http/ws. Disabled by default to require HTTPS/WSS.";
+                var insecureRemoteLabel = allowInsecureRemoteHttpToggle?.parent?.Q<Label>();
+                if (insecureRemoteLabel != null)
+                    insecureRemoteLabel.tooltip = allowInsecureRemoteHttpToggle.tooltip;
+            }
             if (testConnectionButton != null)
                 testConnectionButton.tooltip = "Test the connection between Unity and the MCP server.";
             if (deploySourcePath != null)
@@ -128,6 +146,14 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
             McpLog.SetDebugLoggingEnabled(debugEnabled);
 
             devModeForceRefreshToggle.value = EditorPrefs.GetBool(EditorPrefKeys.DevModeForceServerRefresh, false);
+            if (allowLanHttpBindToggle != null)
+            {
+                allowLanHttpBindToggle.SetValueWithoutNotify(EditorPrefs.GetBool(EditorPrefKeys.AllowLanHttpBind, false));
+            }
+            if (allowInsecureRemoteHttpToggle != null)
+            {
+                allowInsecureRemoteHttpToggle.SetValueWithoutNotify(EditorPrefs.GetBool(EditorPrefKeys.AllowInsecureRemoteHttp, false));
+            }
             UpdatePathOverrides();
             UpdateDeploymentSection();
         }
@@ -177,6 +203,24 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
                 EditorPrefs.SetBool(EditorPrefKeys.DevModeForceServerRefresh, evt.newValue);
                 OnHttpServerCommandUpdateRequested?.Invoke();
             });
+
+            if (allowLanHttpBindToggle != null)
+            {
+                allowLanHttpBindToggle.RegisterValueChangedCallback(evt =>
+                {
+                    EditorPrefs.SetBool(EditorPrefKeys.AllowLanHttpBind, evt.newValue);
+                    OnHttpServerCommandUpdateRequested?.Invoke();
+                });
+            }
+
+            if (allowInsecureRemoteHttpToggle != null)
+            {
+                allowInsecureRemoteHttpToggle.RegisterValueChangedCallback(evt =>
+                {
+                    EditorPrefs.SetBool(EditorPrefKeys.AllowInsecureRemoteHttp, evt.newValue);
+                    OnHttpServerCommandUpdateRequested?.Invoke();
+                });
+            }
 
             deploySourcePath.RegisterValueChangedCallback(evt =>
             {
@@ -280,6 +324,14 @@ namespace MCPForUnity.Editor.Windows.Components.Advanced
             gitUrlOverride.value = EditorPrefs.GetString(EditorPrefKeys.GitUrlOverride, "");
             debugLogsToggle.value = EditorPrefs.GetBool(EditorPrefKeys.DebugLogs, false);
             devModeForceRefreshToggle.value = EditorPrefs.GetBool(EditorPrefKeys.DevModeForceServerRefresh, false);
+            if (allowLanHttpBindToggle != null)
+            {
+                allowLanHttpBindToggle.value = EditorPrefs.GetBool(EditorPrefKeys.AllowLanHttpBind, false);
+            }
+            if (allowInsecureRemoteHttpToggle != null)
+            {
+                allowInsecureRemoteHttpToggle.value = EditorPrefs.GetBool(EditorPrefKeys.AllowInsecureRemoteHttp, false);
+            }
             UpdateDeploymentSection();
         }
 
