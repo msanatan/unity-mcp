@@ -412,7 +412,7 @@ namespace MCPForUnity.Editor.Helpers
         private static bool SetViaSerializedProperty(Component component, string propertyName, string normalizedName, JToken value, out string error)
         {
             error = null;
-            var so = new SerializedObject(component);
+            using var so = new SerializedObject(component);
 
             SerializedProperty prop = so.FindProperty(propertyName)
                                    ?? so.FindProperty(normalizedName);
@@ -515,7 +515,7 @@ namespace MCPForUnity.Editor.Helpers
                         return true;
 
                     case SerializedPropertyType.String:
-                        prop.stringValue = value == null || value.Type == JTokenType.Null ? null : value.ToString();
+                        prop.stringValue = value == null || value.Type == JTokenType.Null ? string.Empty : value.ToString();
                         return true;
 
                     case SerializedPropertyType.Enum:
