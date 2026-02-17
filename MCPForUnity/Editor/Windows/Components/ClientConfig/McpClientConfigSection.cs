@@ -305,6 +305,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
             var (uvxPath, _, packageName) = AssetPathUtility.GetUvxCommandParts();
             string fromArgs = AssetPathUtility.GetBetaServerFromArgs(quoteFromPath: true);
             bool shouldForceRefresh = AssetPathUtility.ShouldForceUvxRefresh();
+            bool shouldUseOffline = AssetPathUtility.ShouldUseUvxOffline();
             string apiKey = EditorPrefs.GetString(EditorPrefKeys.ApiKey, string.Empty);
 
             // Compute pathPrepend on main thread
@@ -332,7 +333,7 @@ namespace MCPForUnity.Editor.Windows.Components.ClientConfig
                             projectDir, claudePath, pathPrepend,
                             useHttpTransport, httpUrl,
                             uvxPath, fromArgs, packageName, shouldForceRefresh,
-                            apiKey, serverTransport);
+                            shouldUseOffline, apiKey, serverTransport);
                     }
                     return (success: true, error: (string)null);
                 }

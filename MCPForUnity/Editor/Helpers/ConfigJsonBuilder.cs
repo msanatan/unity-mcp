@@ -186,6 +186,10 @@ namespace MCPForUnity.Editor.Helpers
                 args.Add("--no-cache");
                 args.Add("--refresh");
             }
+            else if (AssetPathUtility.ShouldUseUvxOffline())
+            {
+                args.Add("--offline");
+            }
 
             // Use centralized helper for beta server / prerelease args
             foreach (var arg in AssetPathUtility.GetBetaServerFromArgsList())
