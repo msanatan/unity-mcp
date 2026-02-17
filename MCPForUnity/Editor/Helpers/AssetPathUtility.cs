@@ -439,6 +439,37 @@ namespace MCPForUnity.Editor.Helpers
         }
 
         /// <summary>
+        /// Determines whether uvx should use --offline mode for faster startup.
+        /// Runs a lightweight probe (uvx --offline ... mcp-for-unity --help) with a 3-second timeout
+        /// to check if the package is already cached. If cached, --offline skips the network
+        /// dependency check that can hang for 30+ seconds on poor connections.
+        /// Returns false if force refresh is enabled (new download needed).
+        /// </summary>
+        public static bool ShouldUseUvxOffline()
+        {
+            if (ShouldForceUvxRefresh())
+                return false;
+
+            try
+            {
+                string uvxPath = MCPServiceLocator.Paths.GetUvxPath();
+                if (string.IsNullOrEmpty(uvxPath))
+                    return false;
+
+                string fromArgs = GetBetaServerFromArgs(quoteFromPath: false);
+                string probeArgs = string.IsNullOrEmpty(fromArgs)
+                    ? "--offline mcp-for-unity --help"
+                    : $"--offline {fromArgs} mcp-for-unity --help";
+
+                return ExecPath.TryRun(uvxPath, probeArgs, null, out _, out _, timeoutMs: 3000);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Returns true if the server URL is a local path (file:// or absolute path).
         /// </summary>
         public static bool IsLocalServerPath()
