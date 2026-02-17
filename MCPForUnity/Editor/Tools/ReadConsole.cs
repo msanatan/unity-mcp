@@ -30,8 +30,7 @@ namespace MCPForUnity.Editor.Tools
         private static FieldInfo _messageField;
         private static FieldInfo _fileField;
         private static FieldInfo _lineField;
-        // Note: Timestamp is not directly available in LogEntry; need to parse message or find alternative?
-
+    
         // Static constructor for reflection setup
         static ReadConsole()
         {
@@ -169,21 +168,12 @@ namespace MCPForUnity.Editor.Tools
                     int? pageSize = p.GetInt("pageSize");
                     int? cursor = p.GetInt("cursor");
                     string filterText = p.Get("filterText");
-                    string sinceTimestampStr = p.Get("sinceTimestamp"); // TODO: Implement timestamp filtering
                     string format = p.Get("format", "plain").ToLower();
                     bool includeStacktrace = p.GetBool("includeStacktrace", false);
 
                     if (types.Contains("all"))
                     {
                         types = new List<string> { "error", "warning", "log" }; // Expand 'all'
-                    }
-
-                    if (!string.IsNullOrEmpty(sinceTimestampStr))
-                    {
-                        McpLog.Warn(
-                            "[ReadConsole] Filtering by 'since_timestamp' is not currently implemented."
-                        );
-                        // Need a way to get timestamp per log entry.
                     }
 
                     return GetConsoleEntries(
@@ -326,8 +316,6 @@ namespace MCPForUnity.Editor.Tools
                         continue;
                     }
 
-                    // TODO: Filter by timestamp (requires timestamp data)
-
                     // --- Formatting ---
                     string stackTrace = includeStacktrace ? ExtractStackTrace(message) : null;
                     // Always get first line for the message, use full message only if no stack trace exists
@@ -358,7 +346,6 @@ namespace MCPForUnity.Editor.Tools
                                 message = messageOnly,
                                 file = file,
                                 line = line,
-                                // timestamp = "", // TODO
                                 stackTrace = stackTrace, // Will be null if includeStacktrace is false or no stack found
                             };
                             break;
