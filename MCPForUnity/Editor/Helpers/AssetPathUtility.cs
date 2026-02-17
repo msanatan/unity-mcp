@@ -439,6 +439,10 @@ namespace MCPForUnity.Editor.Helpers
             return IsLocalServerPath();
         }
 
+        private static bool _offlineCacheResult;
+        private static double _offlineCacheTimestamp = -999;
+        private const double OfflineCacheTtlSeconds = 30.0;
+
         /// <summary>
         /// Determines whether uvx should use --offline mode for faster startup.
         /// Runs a lightweight probe (uvx --offline ... mcp-for-unity --help) with a 3-second timeout
@@ -452,7 +456,11 @@ namespace MCPForUnity.Editor.Helpers
         {
             if (ShouldForceUvxRefresh())
                 return false;
+            return GetCachedOfflineProbeResult();
+        }
 
+        private static bool GetCachedOfflineProbeResult()
+        {
             double now = EditorApplication.timeSinceStartup;
             if (now - _offlineCacheTimestamp < OfflineCacheTtlSeconds)
                 return _offlineCacheResult;
@@ -462,10 +470,6 @@ namespace MCPForUnity.Editor.Helpers
             _offlineCacheTimestamp = now;
             return result;
         }
-
-        private static bool _offlineCacheResult;
-        private static double _offlineCacheTimestamp = -999;
-        private const double OfflineCacheTtlSeconds = 30.0;
 
         private static bool RunOfflineProbe()
         {
@@ -496,7 +500,8 @@ namespace MCPForUnity.Editor.Helpers
         /// </summary>
         public static string GetUvxDevFlags()
         {
-            return GetUvxDevFlags(ShouldForceUvxRefresh(), ShouldUseUvxOffline());
+            bool forceRefresh = ShouldForceUvxRefresh();
+            return GetUvxDevFlags(forceRefresh, !forceRefresh && GetCachedOfflineProbeResult());
         }
 
         /// <summary>
@@ -517,8 +522,9 @@ namespace MCPForUnity.Editor.Helpers
         /// </summary>
         public static IReadOnlyList<string> GetUvxDevFlagsList()
         {
-            if (ShouldForceUvxRefresh()) return new[] { "--no-cache", "--refresh" };
-            if (ShouldUseUvxOffline()) return new[] { "--offline" };
+            bool forceRefresh = ShouldForceUvxRefresh();
+            if (forceRefresh) return new[] { "--no-cache", "--refresh" };
+            if (GetCachedOfflineProbeResult()) return new[] { "--offline" };
             return Array.Empty<string>();
         }
 
