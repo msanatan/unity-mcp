@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using MCPForUnity.Editor.Constants;
 using MCPForUnity.Editor.Services;
@@ -444,12 +445,30 @@ namespace MCPForUnity.Editor.Helpers
         /// to check if the package is already cached. If cached, --offline skips the network
         /// dependency check that can hang for 30+ seconds on poor connections.
         /// Returns false if force refresh is enabled (new download needed).
+        /// The result is cached for 30 seconds to avoid redundant subprocess spawns.
+        /// Must be called on the main thread (reads EditorPrefs).
         /// </summary>
         public static bool ShouldUseUvxOffline()
         {
             if (ShouldForceUvxRefresh())
                 return false;
 
+            double now = EditorApplication.timeSinceStartup;
+            if (now - _offlineCacheTimestamp < OfflineCacheTtlSeconds)
+                return _offlineCacheResult;
+
+            bool result = RunOfflineProbe();
+            _offlineCacheResult = result;
+            _offlineCacheTimestamp = now;
+            return result;
+        }
+
+        private static bool _offlineCacheResult;
+        private static double _offlineCacheTimestamp = -999;
+        private const double OfflineCacheTtlSeconds = 30.0;
+
+        private static bool RunOfflineProbe()
+        {
             try
             {
                 string uvxPath = MCPServiceLocator.Paths.GetUvxPath();
@@ -467,6 +486,40 @@ namespace MCPForUnity.Editor.Helpers
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Returns the uvx dev-mode flags as a single string for command-line builders.
+        /// Returns "--no-cache --refresh " if force refresh is enabled,
+        /// "--offline " if the cache is warm, or string.Empty otherwise.
+        /// Must be called on the main thread (reads EditorPrefs).
+        /// </summary>
+        public static string GetUvxDevFlags()
+        {
+            return GetUvxDevFlags(ShouldForceUvxRefresh(), ShouldUseUvxOffline());
+        }
+
+        /// <summary>
+        /// Returns the uvx dev-mode flags from pre-captured bool values.
+        /// Use this overload when values were captured on the main thread for background use.
+        /// </summary>
+        public static string GetUvxDevFlags(bool forceRefresh, bool useOffline)
+        {
+            if (forceRefresh) return "--no-cache --refresh ";
+            if (useOffline) return "--offline ";
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the uvx dev-mode flags as a list of individual arguments.
+        /// Suitable for callers that build argument lists (ConfigJsonBuilder, CodexConfigHelper).
+        /// Must be called on the main thread (reads EditorPrefs).
+        /// </summary>
+        public static IReadOnlyList<string> GetUvxDevFlagsList()
+        {
+            if (ShouldForceUvxRefresh()) return new[] { "--no-cache", "--refresh" };
+            if (ShouldUseUvxOffline()) return new[] { "--offline" };
+            return Array.Empty<string>();
         }
 
         /// <summary>

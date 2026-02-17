@@ -46,15 +46,7 @@ namespace MCPForUnity.Editor.Services.Server
                 return false;
             }
 
-            // Use central helper that checks both DevModeForceServerRefresh AND local path detection.
-            // Note: --reinstall is not supported by uvx, use --no-cache --refresh instead
-            string devFlags;
-            if (AssetPathUtility.ShouldForceUvxRefresh())
-                devFlags = "--no-cache --refresh ";
-            else if (AssetPathUtility.ShouldUseUvxOffline())
-                devFlags = "--offline ";
-            else
-                devFlags = string.Empty;
+            string devFlags = AssetPathUtility.GetUvxDevFlags();
             bool projectScopedTools = EditorPrefs.GetBool(
                 EditorPrefKeys.ProjectScopedToolsLocalHttp,
                 true
