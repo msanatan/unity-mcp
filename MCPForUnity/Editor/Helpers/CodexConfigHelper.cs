@@ -20,17 +20,8 @@ namespace MCPForUnity.Editor.Helpers
         private static void AddUvxModeFlags(TomlArray args)
         {
             if (args == null) return;
-            // Use central helper that checks both DevModeForceServerRefresh AND local path detection.
-            // Note: --reinstall is not supported by uvx, use --no-cache --refresh instead
-            if (AssetPathUtility.ShouldForceUvxRefresh())
-            {
-                args.Add(new TomlString { Value = "--no-cache" });
-                args.Add(new TomlString { Value = "--refresh" });
-            }
-            else if (AssetPathUtility.ShouldUseUvxOffline())
-            {
-                args.Add(new TomlString { Value = "--offline" });
-            }
+            foreach (var flag in AssetPathUtility.GetUvxDevFlagsList())
+                args.Add(new TomlString { Value = flag });
         }
 
         public static string BuildCodexServerBlock(string uvPath)
