@@ -11,6 +11,9 @@ from services.tools import get_unity_instance_from_context
 from transport.unity_transport import send_with_unity_instance
 import transport.legacy.unity_connection
 
+# Strong references to fire-and-forget tasks to prevent GC before completion
+_background_tasks: set = set()
+
 
 def _split_uri(uri: str) -> tuple[str, str]:
     """Split an incoming URI or path into (name, directory) suitable for Unity.
@@ -326,6 +329,7 @@ async def apply_text_edits(
         unity_instance,
         "manage_script",
         params,
+        retry_on_reload=False,
     )
     if isinstance(resp, dict):
         data = resp.setdefault("data", {})
@@ -335,8 +339,7 @@ async def apply_text_edits(
         if resp.get("success") and (options or {}).get("force_sentinel_reload"):
             # Optional: flip sentinel via menu if explicitly requested
             try:
-                import threading
-                import time
+                import asyncio
                 import json
                 import glob
                 import os
@@ -354,7 +357,7 @@ async def apply_text_edits(
 
                 async def _flip_async():
                     try:
-                        time.sleep(0.1)
+                        await asyncio.sleep(0.1)
                         st = _latest_status()
                         if st and st.get("reloading"):
                             return
@@ -367,7 +370,9 @@ async def apply_text_edits(
                         )
                     except Exception:
                         pass
-                threading.Thread(target=_flip_async, daemon=True).start()
+                task = asyncio.create_task(_flip_async())
+                _background_tasks.add(task)
+                task.add_done_callback(_background_tasks.discard)
             except Exception:
                 pass
             return resp
@@ -423,6 +428,7 @@ async def create_script(
         unity_instance,
         "manage_script",
         params,
+        retry_on_reload=False,
     )
     return resp if isinstance(resp, dict) else {"success": False, "message": str(resp)}
 
@@ -452,6 +458,7 @@ async def delete_script(
         unity_instance,
         "manage_script",
         params,
+        retry_on_reload=False,
     )
     return resp if isinstance(resp, dict) else {"success": False, "message": str(resp)}
 
@@ -551,6 +558,7 @@ async def manage_script(
             unity_instance,
             "manage_script",
             params,
+            retry_on_reload=(action == "read"),
         )
 
         if isinstance(response, dict):
