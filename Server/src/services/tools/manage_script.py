@@ -8,6 +8,7 @@ from mcp.types import ToolAnnotations
 
 from services.registry import mcp_for_unity_tool
 from services.tools import get_unity_instance_from_context
+from services.tools.refresh_unity import send_mutation, verify_edit_by_sha
 from transport.unity_transport import send_with_unity_instance
 import transport.legacy.unity_connection
 
@@ -324,13 +325,13 @@ async def apply_text_edits(
         "options": opts,
     }
     params = {k: v for k, v in params.items() if v is not None}
-    resp = await send_with_unity_instance(
-        transport.legacy.unity_connection.async_send_command_with_retry,
-        unity_instance,
-        "manage_script",
-        params,
-        retry_on_reload=False,
-    )
+
+    async def _verify_edit():
+        if await verify_edit_by_sha(unity_instance, name, directory, precondition_sha256):
+            return {"success": True, "message": "Edit applied (verified after domain reload).", "data": {"normalizedEdits": normalized_edits}}
+        return None
+
+    resp = await send_mutation(ctx, unity_instance, "manage_script", params, verify_after_disconnect=_verify_edit)
     if isinstance(resp, dict):
         data = resp.setdefault("data", {})
         data.setdefault("normalizedEdits", normalized_edits)
@@ -423,13 +424,18 @@ async def create_script(
             contents.encode("utf-8")).decode("utf-8")
         params["contentsEncoded"] = True
     params = {k: v for k, v in params.items() if v is not None}
-    resp = await send_with_unity_instance(
-        transport.legacy.unity_connection.async_send_command_with_retry,
-        unity_instance,
-        "manage_script",
-        params,
-        retry_on_reload=False,
-    )
+
+    async def _verify_create():
+        verify = await send_with_unity_instance(
+            transport.legacy.unity_connection.async_send_command_with_retry,
+            unity_instance, "manage_script",
+            {"action": "read", "name": name, "path": directory},
+        )
+        if isinstance(verify, dict) and verify.get("success"):
+            return {"success": True, "message": "Script created (verified after domain reload).", "data": verify.get("data")}
+        return None
+
+    resp = await send_mutation(ctx, unity_instance, "manage_script", params, verify_after_disconnect=_verify_create)
     return resp if isinstance(resp, dict) else {"success": False, "message": str(resp)}
 
 
@@ -453,13 +459,18 @@ async def delete_script(
     if not directory or directory.split("/")[0].lower() != "assets":
         return {"success": False, "code": "path_outside_assets", "message": "URI must resolve under 'Assets/'."}
     params = {"action": "delete", "name": name, "path": directory}
-    resp = await send_with_unity_instance(
-        transport.legacy.unity_connection.async_send_command_with_retry,
-        unity_instance,
-        "manage_script",
-        params,
-        retry_on_reload=False,
-    )
+
+    async def _verify_delete():
+        verify = await send_with_unity_instance(
+            transport.legacy.unity_connection.async_send_command_with_retry,
+            unity_instance, "manage_script",
+            {"action": "read", "name": name, "path": directory},
+        )
+        if isinstance(verify, dict) and not verify.get("success"):
+            return {"success": True, "message": "Script deleted (verified after domain reload)."}
+        return None
+
+    resp = await send_mutation(ctx, unity_instance, "manage_script", params, verify_after_disconnect=_verify_delete)
     return resp if isinstance(resp, dict) else {"success": False, "message": str(resp)}
 
 
@@ -553,13 +564,28 @@ async def manage_script(
 
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await send_with_unity_instance(
-            transport.legacy.unity_connection.async_send_command_with_retry,
-            unity_instance,
-            "manage_script",
-            params,
-            retry_on_reload=(action == "read"),
-        )
+        if action == "read":
+            response = await send_with_unity_instance(
+                transport.legacy.unity_connection.async_send_command_with_retry,
+                unity_instance,
+                "manage_script",
+                params,
+                retry_on_reload=True,
+            )
+        else:
+            async def _verify_mutation():
+                verify = await send_with_unity_instance(
+                    transport.legacy.unity_connection.async_send_command_with_retry,
+                    unity_instance, "manage_script",
+                    {"action": "read", "name": name, "path": path},
+                )
+                if action == "create" and isinstance(verify, dict) and verify.get("success"):
+                    return {"success": True, "message": "Script created (verified after domain reload).", "data": verify.get("data")}
+                elif action == "delete" and isinstance(verify, dict) and not verify.get("success"):
+                    return {"success": True, "message": "Script deleted (verified after domain reload)."}
+                return None
+
+            response = await send_mutation(ctx, unity_instance, "manage_script", params, verify_after_disconnect=_verify_mutation)
 
         if isinstance(response, dict):
             if response.get("success"):
