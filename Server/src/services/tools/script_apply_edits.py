@@ -970,6 +970,7 @@ async def script_apply_edits(
             unity_instance,
             "manage_script",
             params_struct,
+            retry_on_reload=False,
         )
         if isinstance(resp_struct, dict) and resp_struct.get("success"):
             pass  # Optional sentinel reload removed (deprecated)
@@ -1110,6 +1111,7 @@ async def script_apply_edits(
                     unity_instance,
                     "manage_script",
                     params_text,
+                    retry_on_reload=False,
                 )
                 if not (isinstance(resp_text, dict) and resp_text.get("success")):
                     return _with_norm(resp_text if isinstance(resp_text, dict) else {"success": False, "message": str(resp_text)}, normalized_for_echo, routing="mixed/text-first")
@@ -1135,6 +1137,7 @@ async def script_apply_edits(
                 unity_instance,
                 "manage_script",
                 params_struct,
+                retry_on_reload=False,
             )
             if isinstance(resp_struct, dict) and resp_struct.get("success"):
                 pass  # Optional sentinel reload removed (deprecated)
@@ -1267,6 +1270,7 @@ async def script_apply_edits(
                 unity_instance,
                 "manage_script",
                 params,
+                retry_on_reload=False,
             )
             if isinstance(resp, dict) and resp.get("success"):
                 pass  # Optional sentinel reload removed (deprecated)
@@ -1356,6 +1360,7 @@ async def script_apply_edits(
         unity_instance,
         "manage_script",
         params,
+        retry_on_reload=False,
     )
     if isinstance(write_resp, dict) and write_resp.get("success"):
         pass  # Optional sentinel reload removed (deprecated)
