@@ -282,7 +282,7 @@ async def get_test_job(
             # This handles OS-level throttling (e.g., macOS App Nap) that can
             # stall PlayMode tests when Unity is in the background.
             # Uses exponential backoff: 1s, 2s, 4s, 8s, 10s max between nudges.
-            progress = data.get("progress", {})
+            progress = data.get("progress") or {}
             editor_is_focused = progress.get("editor_is_focused", True)
             current_time_ms = int(time.time() * 1000)
 
@@ -324,7 +324,7 @@ async def get_test_job(
     data = response.get("data", {})
     status = data.get("status", "")
     if status == "running":
-        progress = data.get("progress", {})
+        progress = data.get("progress") or {}
         editor_is_focused = progress.get("editor_is_focused", True)
         last_update_unix_ms = data.get("last_update_unix_ms")
         current_time_ms = int(time.time() * 1000)
